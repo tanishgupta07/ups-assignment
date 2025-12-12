@@ -112,10 +112,18 @@ def add_message(session_id, question, answer, sources=None):
 def get_chat_history(session_id, limit=5):
     """Get last N messages as (question, answer) tuples for context."""
     session = get_session(session_id)
-    if not session:
+    if session is None:
         return []
-    messages = session.get("messages", [])[-limit:]
-    return [(m["question"], m["answer"]) for m in messages]
+
+    # Extract only the last `limit` messages
+    recent_messages = session.get("messages", [])[-limit:]
+
+    # Convert each message into a (question, answer) tuple
+    history = []
+    for message in recent_messages:
+        history.append((message["question"], message["answer"]))
+
+    return history
 
 def get_all_sessions():
     sessions = []

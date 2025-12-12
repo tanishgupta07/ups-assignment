@@ -1,7 +1,7 @@
 import os
 import uuid
 import logging
-from fastapi import FastAPI, UploadFile, File, HTTPException, BackgroundTasks
+from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
@@ -40,7 +40,7 @@ class FeedbackReq(BaseModel):
     answer: str
     feedback: str
 
-# ---------- Root ----------
+
 
 @app.get("/")
 async def root():
@@ -50,7 +50,7 @@ async def root():
 async def health():
     return {"status": "ok"}
 
-# ---------- Sessions ----------
+
 
 @app.post("/sessions")
 async def create_session():
@@ -68,13 +68,8 @@ async def get_session(session_id: str):
         raise HTTPException(404, "Session not found")
     return session
 
-@app.delete("/sessions/{session_id}")
-async def delete_session(session_id: str):
-    if storage.delete_session(session_id):
-        return {"ok": True}
-    raise HTTPException(404, "Session not found")
 
-# ---------- Query ----------
+
 
 @app.post("/query")
 async def ask(req: QueryReq):
@@ -96,14 +91,13 @@ async def ask(req: QueryReq):
     except Exception as e:
         raise HTTPException(500, str(e))
 
-# ---------- Feedback ----------
 
 @app.post("/feedback")
 async def submit_feedback(req: FeedbackReq):
     save_feedback(req.query, req.answer, req.feedback)
     return {"ok": True}
 
-# ---------- Ingest ----------
+
 
 DOCUMENT_TAGS = ["Finance Document", "Business Document", "Public Document"]
 
@@ -112,7 +106,7 @@ async def get_tags():
     return {"tags": DOCUMENT_TAGS}
 
 @app.post("/ingest/upload")
-async def upload(bg: BackgroundTasks, file: UploadFile = File(...), tag: str = "Public Document", force: bool = False):
+async def upload(file: UploadFile = File(...), tag: str = "Public Document", force: bool = False):
     name = file.filename
     ext = name.split(".")[-1].lower()
 
@@ -122,27 +116,25 @@ async def upload(bg: BackgroundTasks, file: UploadFile = File(...), tag: str = "
     if tag not in DOCUMENT_TAGS:
         raise HTTPException(400, f"Invalid tag. Must be one of: {DOCUMENT_TAGS}")
 
+    # check if already exists
     existing = storage.get_doc_by_name(name)
-
-    if existing and not force:
-        return {"document_id": existing["id"], "filename": name, "message": "exists"}
-
-    if existing and force:
+    if existing:
+        if not force:
+            return {"document_id": existing["id"], "filename": name, "message": "exists"}
+        # force=True: delete old doc and its file
         storage.delete_doc(existing["id"])
-        if existing.get("file_path") and os.path.exists(existing["file_path"]):
-            os.remove(existing["file_path"])
+        if existing.get("file_path"):
+            os.remove(existing["file_path"]) if os.path.exists(existing["file_path"]) else None
 
-    content = await file.read()
+    # save file and process
     doc_id = str(uuid.uuid4())
     path = os.path.join(config.RAW_DIR, f"{doc_id}.{ext}")
     os.makedirs(config.RAW_DIR, exist_ok=True)
-
     with open(path, "wb") as f:
-        f.write(content)
+        f.write(await file.read())
 
-    bg.add_task(process_doc, doc_id, path, name, ext, tag)
-
-    return {"document_id": doc_id, "filename": name, "tag": tag, "message": "processing"}
+    await process_doc(doc_id, path, name, ext, tag)
+    return {"document_id": doc_id, "filename": name, "tag": tag, "message": "completed"}
 
 @app.get("/ingest/documents")
 async def list_docs():

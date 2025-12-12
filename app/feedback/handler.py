@@ -14,8 +14,8 @@ def get_negative_context():
     if not negs:
         return ""
 
-    lines = ["Avoid these types of answers that users found unhelpful:"]
-    for fb in negs:
-        lines.append(f"Q: {fb['query']}")
-        lines.append(f"Bad A: {fb['answer'][:150]}...")
+    lines = ["Users marked these answers as unhelpful. Avoid similar responses:"]
+    for i, fb in enumerate(negs, 1):
+        lines.append(f"{i}. Question: {fb['query']}")
+        lines.append(f"   Unhelpful answer: {fb['answer'][:200]}")
     return "\n".join(lines)

@@ -22,7 +22,7 @@ def query(question, chat_history=None, k=None, filter=None):
     sources = []
     for doc, score in results:
         sources.append({
-            "content": doc.page_content[:300],
+            "content": doc.page_content[:500],
             "metadata": doc.metadata,
             "score": float(score),
         })

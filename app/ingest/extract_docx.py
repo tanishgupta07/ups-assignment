@@ -15,37 +15,13 @@ def extract_docx(path, metadata=None):
                 content.append(para)
 
         elif tag == 'tbl':
-            # table - find it in doc.tables
+            # table - find it in doc.tables and extract as plain text
             for table in doc.tables:
                 if table._tbl == element:
-                    md = table_to_markdown(table)
-                    if md:
-                        content.append(md)
+                    for row in table.rows:
+                        cells = [cell.text.strip() for cell in row.cells]
+                        content.append(" | ".join(cells))
                     break
 
-    meta = metadata or {}
-    return [Document(page_content="\n\n".join(content), metadata=meta)]
-
-def table_to_markdown(table):
-    rows = []
-    for row in table.rows:
-        cells = [cell.text.strip() for cell in row.cells]
-        rows.append(cells)
-
-    if not rows:
-        return ""
-
-    lines = []
-    # header
-    header = rows[0]
-    lines.append("| " + " | ".join(header) + " |")
-    lines.append("| " + " | ".join(["---"] * len(header)) + " |")
-
-    # data rows
-    for row in rows[1:]:
-        # pad if needed
-        while len(row) < len(header):
-            row.append("")
-        lines.append("| " + " | ".join(row[:len(header)]) + " |")
-
-    return "\n".join(lines)
+    text = "\n".join(content)
+    return [Document(page_content=text, metadata=metadata or {})]

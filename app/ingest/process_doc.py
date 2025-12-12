@@ -6,19 +6,21 @@ from app.vectorstore.faiss_store import get_vector_store
 
 log = logging.getLogger(__name__)
 
-EXTRACTORS = {
-    "pdf": extract_pdf,
-    "docx": extract_docx,
-}
+EXTRACTORS = ["pdf", "docx"]
 
 async def process_doc(doc_id: str, path: str, filename: str, ext: str, tag: str = "Public Document"):
     log.info(f"Processing: {filename} (id={doc_id}, tag={tag})")
     try:
         vs = get_vector_store()
+        metadata = {"doc_id": doc_id, "file_type": ext, "tag": tag}
 
-        extractor = EXTRACTORS.get(ext)
+        # extract text based on file type
         log.info(f"Extracting text from {filename}...")
-        docs = extractor(path, metadata={"doc_id": doc_id, "file_type": ext, "tag": tag})
+        if ext == "pdf":
+            docs = extract_pdf(path, metadata=metadata)
+        elif ext == "docx":
+            docs = extract_docx(path, metadata=metadata)
+
         log.info(f"Extracted {len(docs)} document(s)")
 
         log.info(f"Chunking {filename}...")

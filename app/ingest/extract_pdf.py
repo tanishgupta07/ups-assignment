@@ -12,38 +12,17 @@ def extract_pdf(path, metadata=None):
             if text.strip():
                 content.append(text)
 
-            # extract tables as markdown
-            tables = page.extract_tables()
-            for table in tables:
+            # extract tables as plain text (row by row)
+            for table in page.extract_tables():
                 if table:
-                    md = table_to_markdown(table)
-                    if md:
-                        content.append(md)
+                    for row in table:
+                        cells = [str(cell or "") for cell in row]
+                        content.append(" | ".join(cells))
 
             if content:
                 meta = {"page": i + 1}
                 if metadata:
                     meta.update(metadata)
-                docs.append(Document(page_content="\n\n".join(content), metadata=meta))
+                docs.append(Document(page_content="\n".join(content), metadata=meta))
 
     return docs
-
-def table_to_markdown(table):
-    if not table or not table[0]:
-        return ""
-
-    lines = []
-    # header
-    header = [str(cell or "") for cell in table[0]]
-    lines.append("| " + " | ".join(header) + " |")
-    lines.append("| " + " | ".join(["---"] * len(header)) + " |")
-
-    # rows
-    for row in table[1:]:
-        cells = [str(cell or "") for cell in row]
-        # pad if needed
-        while len(cells) < len(header):
-            cells.append("")
-        lines.append("| " + " | ".join(cells[:len(header)]) + " |")
-
-    return "\n".join(lines)
